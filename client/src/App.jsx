@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import io from 'socket.io-client';
 
 const API_URL = import.meta.env.PROD
-  ? 'https://https://moodsic-76kt.onrender.com'
+  ? 'https://moodsic-76kt.onrender.com'
   : 'http://localhost:3000';
 
 const socket = io(API_URL);
