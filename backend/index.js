@@ -70,6 +70,7 @@ io.on('connection', (socket) => {
         // Retransmitimos a todos (incluido el que lo mandó para feedback instantáneo)
         io.emit('trigger_ripple', { id: Date.now(), x: coords.x, y: coords.y });
     });
+    
 });
 
 app.get('/api/songs', async (req, res) => {
