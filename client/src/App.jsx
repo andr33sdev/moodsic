@@ -27,6 +27,7 @@ const Icons = {
   Heart: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>,
   Menu: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>,
   X: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+  List: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>,
   Clock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
 };
 
@@ -52,9 +53,9 @@ function App() {
 
   // CONTROL DE UI
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showTasksModal, setShowTasksModal] = useState(false);
 
   // FEATURES
-  const [sleepTimer, setSleepTimer] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [memo, setMemo] = useState(() => localStorage.getItem('ghost_memo') || "");
@@ -73,6 +74,12 @@ function App() {
   const audioRef = useRef(null);
   const rainRef = useRef(null);
   const coffeeRef = useRef(null);
+
+  // BACKGROUND VIDEOS (Zen Mode)
+  const bgVideos = {
+    gaming: "https://cdn.pixabay.com/video/2020/04/18/36465-412239352_large.mp4", // Abstract Tunnel
+    relax: "https://cdn.pixabay.com/video/2019/04/13/22756-330424660_large.mp4" // Rain on window
+  };
 
   // REACCIÓN ALEATORIA
   const reactionEmojis = ['🔥', '❤️', '✨', '🎉', '🌊', '🚀'];
@@ -105,7 +112,6 @@ function App() {
     return () => { socket.off('users_update'); socket.off('new_reaction'); socket.off('sync_state'); socket.off('mood_updated'); socket.off('trigger_ripple'); };
   }, [currentSong, isLocalPaused]);
 
-  // LÓGICA POMODORO
   useEffect(() => {
     let interval = null;
     if (pomoActive && pomoTime > 0) {
@@ -129,13 +135,6 @@ function App() {
   const resetPomo = () => { setPomoActive(false); setPomoTime(25 * 60); setPomoMode('work'); };
 
   useEffect(() => { localStorage.setItem('ghost_memo', memo); }, [memo]);
-
-  useEffect(() => {
-    let interval = null;
-    if (sleepTimer > 0) interval = setInterval(() => { setSleepTimer(prev => prev - 1); }, 60000);
-    else if (sleepTimer === 0) { setIsLocalPaused(true); if (audioRef.current) audioRef.current.pause(); setSleepTimer(null); addNotification("Sleep Timer Finished"); }
-    return () => clearInterval(interval);
-  }, [sleepTimer]);
 
   useEffect(() => {
     if (rainRef.current) { rainRef.current.volume = rainVolume; if (rainVolume > 0 && rainRef.current.paused) rainRef.current.play().catch(() => { }); if (rainVolume === 0) rainRef.current.pause(); }
@@ -219,7 +218,18 @@ function App() {
     .sidebar { width: 300px; margin: 20px 0 20px 20px; border-radius: 30px; padding: 30px 24px; display: flex; flex-direction: column; z-index: 10; background: ${theme.glass}; backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.08); transition: all 0.4s ease; }
     .main-content { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
     
-    /* Footer Logic - Desktop */
+    .main-view-container {
+        display: flex;
+        height: calc(100vh - 140px);
+        width: 100%;
+        padding: 0 30px;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: 30px;
+        position: relative;
+    }
+
+    /* Footer Logic - Desktop (FIXED LAYOUT) */
     .player-footer { 
         position: fixed; 
         bottom: 30px; 
@@ -239,8 +249,17 @@ function App() {
     }
     .player-footer.zen-active { left: 30px !important; }
 
+    /* Secciones del Player DESKTOP */
+    .player-section-info { flex: 1; display: flex; align-items: center; gap: 20px; }
+    
+    .player-section-controls { flex: 0 1 auto; width: 400px; display: flex; flex-direction: column; align-items: center; }
+    
+    /* CORRECCIÓN VOLUMEN DESKTOP: flex-end con gap */
+    .player-section-actions { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 30px; }
+
     .mobile-header { display: none; }
     .mobile-menu-overlay { display: none; }
+    .tasks-modal-overlay { display: none; }
     .song-list-container { flex: 1; overflow-y: auto; padding-bottom: 160px; }
     .zen-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding-bottom: 100px; }
 
@@ -258,16 +277,26 @@ function App() {
     @media (max-width: 900px) {
         .sidebar { display: none; } 
         
+        .main-view-container {
+            padding: 0;
+            display: block;
+            height: auto;
+            margin-top: 0;
+        }
+
         .mobile-header { 
             display: flex; 
-            position: absolute; 
+            position: fixed; 
             top: 0; 
             left: 0; 
             right: 0; 
-            padding: 20px; 
+            padding: 15px 20px; 
             z-index: 50; 
             align-items: center; 
             justify-content: space-between; 
+            background: ${theme.glass};
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
         .mobile-menu-overlay {
@@ -280,61 +309,156 @@ function App() {
             flex-direction: column;
             padding: 30px;
             animation: slideIn 0.3s ease;
+            overflow-y: auto;
+        }
+
+        /* TASKS MODAL OVERLAY */
+        .tasks-modal-overlay {
+            display: flex;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
 
         .player-footer { 
             left: 50%; 
             transform: translateX(-50%); 
-            width: calc(100% - 40px); /* CORRECCIÓN: Padding a los extremos */
+            width: calc(100% - 30px); 
             bottom: 20px; 
             height: auto; 
-            padding: 15px 20px; 
-            flex-wrap: wrap; 
-            gap: 10px; 
-            border-radius: 24px;
+            padding: 12px 20px; 
+            border-radius: 20px;
+            z-index: 100;
+            display: flex;
+            flex-direction: row; 
+            flex-wrap: nowrap; 
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            overflow: hidden; 
         }
         .player-footer.zen-active { left: 50% !important; }
 
         .song-list-container { 
-            padding: 80px 20px 180px 20px !important; 
+            padding: 90px 20px 200px 20px !important; 
             width: 100% !important; 
             max-width: none !important; 
         }
         
-        .player-section-info { width: 100%; order: 1; display: flex; justify-content: space-between; align-items: center; }
-        .player-section-controls { width: 100%; order: 2; margin-top: 10px; }
-        .player-section-actions { width: auto; order: 1; }
+        .player-section-info { 
+            width: auto; 
+            flex: 1; 
+            order: 1; 
+            justify-content: flex-start;
+            min-width: 0; 
+            gap: 12px;
+        }
         
-        .mobile-vol-slider { position: absolute; bottom: 100px; right: 20px; width: 40px; height: 120px; background: ${theme.glass}; backdrop-filter: blur(20px); padding: 15px 0; border-radius: 20px; display: flex; justify-content: center; border: 1px solid rgba(255,255,255,0.1); }
-        .mobile-vol-slider input { transform: rotate(-90deg); width: 100px; }
+        .player-section-controls { 
+            width: auto; 
+            flex: 0 0 auto;
+            order: 3; 
+            margin-top: 0;
+            max-width: none !important;
+            flex-direction: row;
+        }
+        
+        .player-section-actions { 
+            width: auto; 
+            flex: 0 0 auto;
+            order: 4; 
+            gap: 10px;
+        }
+
+        /* POMODORO MOBILE IN PLAYER: Order 2 (Middle) */
+        .mobile-pomo-player {
+            order: 2;
+            flex: 0 0 auto;
+            margin: 0 10px;
+        }
+
+        .player-section-controls > div:nth-child(2) {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100% !important;
+            padding: 0;
+            height: 3px;
+            background: transparent !important;
+        }
+        .player-section-controls > div:nth-child(2) > span { display: none; }
+        .player-section-controls > div:nth-child(2) > div { 
+            background: transparent !important; 
+            border-radius: 0 !important;
+        }
+        .player-section-controls > div:nth-child(2) > div > div {
+            border-radius: 0 2px 2px 0 !important;
+        }
+        
+        .mobile-hidden { display: none !important; }
     }
   `;
 
-  // --- COMPONENTES REUTILIZABLES ---
+  // --- MODAL COMPONENT (FOCUS TASKS) ---
+  const TasksModal = () => (
+    <div className="tasks-modal-overlay interactive">
+      <div style={{ background: theme.glass, borderRadius: '20px', padding: '30px', width: '100%', maxWidth: '500px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>Focus Tasks</h2>
+          <button onClick={() => setShowTasksModal(false)} className="glass-button" style={{ width: '36px', height: '36px', padding: 0 }}><Icons.X /></button>
+        </div>
+        <form onSubmit={addTask} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <input type="text" placeholder="Add a new task..." value={newTask} onChange={e => setNewTask(e.target.value)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '12px', color: 'white', padding: '12px 15px', fontSize: '1rem', outline: 'none' }} autoFocus />
+          <button type="submit" style={{ background: theme.accent, color: 'white', border: 'none', borderRadius: '12px', padding: '0 20px', fontWeight: 'bold', cursor: 'pointer' }}>ADD</button>
+        </form>
+        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          {tasks.length === 0 && <p style={{ color: theme.textSec, textAlign: 'center', fontStyle: 'italic' }}>No active tasks. Stay focused!</p>}
+          {tasks.map(t => (
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '1rem', marginBottom: '10px', opacity: t.done ? 0.5 : 1, background: 'rgba(255,255,255,0.03)', padding: '10px 15px', borderRadius: '10px' }}>
+              <button onClick={() => toggleTask(t.id)} style={{ background: t.done ? theme.accent : 'transparent', border: `2px solid ${t.done ? theme.accent : 'rgba(255,255,255,0.3)'}`, borderRadius: '6px', width: '24px', height: '24px', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black' }}>{t.done && <Icons.Check />}</button>
+              <span style={{ textDecoration: t.done ? 'line-through' : 'none', flex: 1, color: t.done ? theme.textSec : '#fff' }}>{t.text}</span>
+              <button onClick={() => deleteTask(t.id)} className="glass-button" style={{ width: '32px', height: '32px', color: theme.textSec }}><Icons.Trash /></button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
-  const SidebarContent = () => (
+  const renderSidebarContent = () => (
     <>
-      <div style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '40px', letterSpacing: '-1px' }}>ambienting<span style={{ color: theme.accent }}>.me</span></div>
+      <div style={{ fontSize: '1.5rem', fontWeight: '900', marginBottom: '40px', letterSpacing: '-1px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>ambienting<span style={{ color: theme.accent }}>.me</span></span>
+        <div className="mobile-only" style={{ display: window.innerWidth <= 900 ? 'flex' : 'none', alignItems: 'center', gap: '6px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '12px' }}>
+          <Icons.Users /> <span style={{ fontWeight: '700' }}>{userCount}</span>
+        </div>
+      </div>
 
-      {/* 1. MOOD SELECTOR */}
       <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', padding: '4px', marginBottom: '30px' }}>
         {['gaming', 'relax'].map(mood => (
           <button key={mood} onClick={() => setActiveMood(mood)} style={{ flex: 1, textAlign: 'center', background: activeMood === mood ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeMood === mood ? 'white' : theme.textSec, border: 'none', padding: '10px', borderRadius: '12px', cursor: 'pointer', fontWeight: '700', fontSize: '0.8rem', transition: 'all 0.2s' }}>{mood.toUpperCase()}</button>
         ))}
       </div>
 
-      {/* 2. MOBILE ONLY: POMODORO WIDGET DENTRO DEL MENÚ */}
-      <div className="mobile-only" style={{ display: window.innerWidth <= 900 ? 'block' : 'none', marginBottom: '30px', paddingBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: '800', letterSpacing: '1px', color: theme.textSec, textTransform: 'uppercase' }}>Focus Timer</span>
-          <span style={{ fontSize: '1.2rem', fontWeight: '700', fontVariantNumeric: 'tabular-nums' }}>{formatTime(pomoTime)}</span>
+      {/* --- POMODORO CONTROL (MOBILE MENU) --- */}
+      <div className="mobile-only" style={{ display: window.innerWidth <= 900 ? 'block' : 'none', marginBottom: '30px', padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: '800', letterSpacing: '1px', color: theme.textSec, textTransform: 'uppercase' }}>Focus Timer</span>
+          <span style={{ fontSize: '1.5rem', fontWeight: '800', fontVariantNumeric: 'tabular-nums', color: 'white' }}>{formatTime(pomoTime)}</span>
         </div>
-        <button onClick={togglePomo} className="glass-button" style={{ width: '100%', padding: '10px', borderRadius: '12px', background: pomoActive ? theme.accent : 'rgba(255,255,255,0.05)', color: 'white', fontWeight: '700' }}>
-          {pomoActive ? 'PAUSE' : 'START'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={togglePomo} style={{ flex: 1, padding: '12px', borderRadius: '12px', background: pomoActive ? theme.accent : 'rgba(255,255,255,0.1)', color: 'white', fontWeight: '700', border: 'none' }}>
+            {pomoActive ? 'PAUSE' : 'START'}
+          </button>
+          <button onClick={resetPomo} className="glass-button" style={{ width: '45px', borderRadius: '12px' }}>↺</button>
+        </div>
       </div>
 
-      {/* 3. MIXER */}
       <div style={{ padding: '0 10px', marginBottom: '30px' }}>
         <p style={{ fontSize: '0.7rem', color: theme.textSec, fontWeight: '700', textTransform: 'uppercase', marginBottom: '15px', letterSpacing: '1px' }}>Mixer</p>
         <div style={{ marginBottom: '20px' }}>
@@ -347,26 +471,15 @@ function App() {
         </div>
       </div>
 
-      {/* 4. TASKS */}
       {activeMood === 'relax' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <p style={{ fontSize: '0.7rem', color: theme.textSec, fontWeight: '700', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '1px' }}>Focus Tasks</p>
-          <form onSubmit={addTask} style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
-            <input type="text" placeholder="Add task..." value={newTask} onChange={e => setNewTask(e.target.value)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '12px', color: 'white', padding: '10px 15px', fontSize: '0.85rem', outline: 'none', fontWeight: '500' }} />
-          </form>
-          <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
-            {tasks.map(t => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', marginBottom: '8px', opacity: t.done ? 0.5 : 1, background: t.done ? 'transparent' : 'rgba(255,255,255,0.03)', padding: '8px 10px', borderRadius: '10px' }}>
-                <button onClick={() => toggleTask(t.id)} style={{ background: t.done ? theme.accent : 'transparent', border: `2px solid ${t.done ? theme.accent : 'rgba(255,255,255,0.3)'}`, borderRadius: '6px', width: '20px', height: '20px', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black' }}>{t.done && <Icons.Check />}</button>
-                <span style={{ textDecoration: t.done ? 'line-through' : 'none', flex: 1, color: t.done ? theme.textSec : '#fff', fontWeight: '500' }}>{t.text}</span>
-                <button onClick={() => deleteTask(t.id)} className="glass-button" style={{ width: '28px', height: '28px', borderRadius: '8px', color: theme.textSec }}><Icons.Trash /></button>
-              </div>
-            ))}
-          </div>
+        <div style={{ marginBottom: '30px' }}>
+          <button onClick={() => setShowTasksModal(true)} className="glass-button" style={{ width: '100%', justifyContent: 'space-between', padding: '12px 15px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Icons.List /> Focus Tasks</span>
+            <span style={{ background: theme.accent, borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>{tasks.filter(t => !t.done).length}</span>
+          </button>
         </div>
       )}
 
-      {/* 5. MEMO */}
       <div style={{ marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', color: theme.textSec }}><Icons.Edit /> <span style={{ fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>Memo</span></div>
         <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Type here..." style={{ width: '100%', height: '80px', background: 'rgba(255,255,255,0.03)', border: 'none', borderRadius: '12px', color: '#eee', fontSize: '0.85rem', resize: 'none', outline: 'none', fontFamily: 'inherit', lineHeight: '1.5', padding: '10px' }} />
@@ -390,16 +503,33 @@ function App() {
   }
 
   return (
-    <div className="layout-container animate-bg" onClick={handleBackgroundClick} style={{ background: theme.bg, color: 'white', transition: 'background 1.5s ease' }}>
+    <div className="layout-container animate-bg" onClick={handleBackgroundClick} style={{ background: theme.bg, color: 'white', transition: 'background 1.5s ease', position: 'relative' }}>
       <style>{globalStyles}</style>
 
-      {/* Efectos Visuales */}
+      {/* ZEN VISUALS */}
+      {zenMode && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, opacity: 0.6 }}>
+          <video
+            key={activeMood} // Para forzar recarga al cambiar mood
+            src={bgVideos[activeMood]}
+            autoPlay loop muted playsInline
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.8))' }}></div>
+        </div>
+      )}
+
+      {/* Ripples */}
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
         {ripples.map(r => (<div key={r.id} style={{ position: 'absolute', left: `${r.x}%`, top: `${r.y}%`, width: '100px', height: '100px', borderRadius: '50%', border: `2px solid rgba(255,255,255,0.2)`, transform: 'translate(-50%, -50%)', animation: 'rippleAnim 1s ease-out forwards' }}></div>))}
       </div>
+
       <div style={{ position: 'absolute', top: '90px', right: '20px', zIndex: 999, display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end', pointerEvents: 'none' }}>
         {notifications.map(n => (<div key={n.id} style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '10px 20px', borderRadius: '12px', borderLeft: `3px solid ${theme.accent}`, animation: 'slideIn 0.3s ease-out', fontSize: '0.8rem', fontWeight: '600', backdropFilter: 'blur(20px)' }}>{n.text}</div>))}
       </div>
+
+      {/* MODAL DE TAREAS */}
+      {showTasksModal && <TasksModal />}
 
       {/* --- MENU MOBILE OVERLAY --- */}
       {mobileMenuOpen && (
@@ -408,56 +538,45 @@ function App() {
             <div style={{ fontWeight: '900', fontSize: '1.5rem' }}>Menu</div>
             <button onClick={() => setMobileMenuOpen(false)} style={{ background: 'transparent', border: 'none', color: 'white' }}><Icons.X /></button>
           </div>
-          <SidebarContent />
+          {renderSidebarContent()}
         </div>
       )}
 
-      {/* --- MOBILE HEADER REDISEÑADO (CLEAN) --- */}
+      {/* --- MOBILE HEADER --- */}
       <div className="mobile-header interactive">
         <button onClick={() => setMobileMenuOpen(true)} className="glass-button" style={{ width: '40px', height: '40px', padding: 0 }}>
           <Icons.Menu />
         </button>
         <div style={{ fontWeight: '900', fontSize: '1.2rem', letterSpacing: '-0.5px' }}>ambienting<span style={{ color: theme.accent }}>.me</span></div>
-        <div style={{ width: '40px' }}></div> {/* Spacer para equilibrar */}
+        <button onClick={() => setZenMode(!zenMode)} className="glass-button" style={{ width: '40px', height: '40px', padding: 0 }}>
+          {zenMode ? <Icons.Minimize /> : <Icons.Expand />}
+        </button>
       </div>
 
       {/* --- SIDEBAR DESKTOP --- */}
       {!zenMode && (
         <div className="sidebar interactive">
-          <SidebarContent />
+          {renderSidebarContent()}
         </div>
       )}
 
-      <div className="main-content">
+      <div className="main-content" style={{ zIndex: 2 }}>
         {/* --- DESKTOP TOP CONTROLS --- */}
         <div style={{ position: 'absolute', top: '30px', right: '30px', display: 'flex', alignItems: 'center', gap: '15px', zIndex: 20 }} className='interactive mobile-hidden'>
           <div className="glass-button" style={{ padding: '8px 16px', borderRadius: '20px', cursor: 'default' }}>
             <Icons.Users /> <span style={{ fontWeight: '700', fontSize: '0.85rem', marginLeft: '6px' }}>{userCount}</span>
           </div>
-          <button onClick={() => setSleepTimer(sleepTimer ? null : 30)} className="glass-button" style={{ background: sleepTimer ? theme.accent : null, color: sleepTimer ? 'black' : 'white', padding: '8px 16px', borderRadius: '20px', fontSize: '0.85rem', gap: '6px', fontWeight: '700' }}>
-            <Icons.Moon /> {sleepTimer ? `${sleepTimer}m` : 'Sleep'}
-          </button>
           <button onClick={() => setZenMode(!zenMode)} className="glass-button" style={{ width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}>
             {zenMode ? <Icons.Minimize /> : <Icons.Expand />}
           </button>
         </div>
 
-        {/* --- REACCIONES FLOTANTES --- */}
         <div style={{ position: 'absolute', bottom: '140px', right: '40px', width: '100px', height: '400px', pointerEvents: 'none', zIndex: 50 }}>
           {reactions.map(r => (<div key={r.id} style={{ position: 'absolute', bottom: 0, right: '0', fontSize: '3rem', animation: 'floatUp 4s ease-out forwards', filter: 'drop-shadow(0 0 20px rgba(255,255,255,0.3))' }}>{r.emoji}</div>))}
         </div>
 
         {!zenMode ? (
-          <div style={{
-            display: 'flex',
-            height: 'calc(100vh - 140px)',
-            width: '100%',
-            padding: '0 30px',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginTop: '30px', // CORRECCIÓN: Alineado con iconos superiores (30px)
-            position: 'relative'
-          }}>
+          <div className="main-view-container">
 
             {/* IZQUIERDA: LISTA DE CANCIONES */}
             <div className="song-list-container interactive" style={{
@@ -468,7 +587,7 @@ function App() {
               paddingRight: '10px',
               transition: 'all 0.4s ease'
             }}>
-              <div style={{ marginBottom: '30px', textAlign: 'left', marginTop: 0 }}> {/* marginTop 0 para alinear con iconos */}
+              <div style={{ marginBottom: '30px', textAlign: 'left', marginTop: 0 }}>
                 <h1 style={{ fontSize: '3.5rem', fontWeight: '900', margin: '0 0 5px 0', letterSpacing: '-2px', lineHeight: 1 }}>
                   {activeMood === 'gaming' ? 'Gaming Station' : 'Deep Focus'}
                 </h1>
@@ -502,7 +621,7 @@ function App() {
             </div>
 
             {/* DERECHA: POMODORO WIDGET (DESKTOP) */}
-            <div style={{
+            <div className="mobile-hidden" style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'flex-end',
@@ -513,7 +632,7 @@ function App() {
             }}>
 
               {isPomoVisible && (
-                <div className="interactive mobile-hidden" style={{
+                <div className="interactive" style={{
                   width: '100%',
                   background: theme.glass,
                   borderRadius: '24px',
@@ -547,7 +666,7 @@ function App() {
               {!isPomoVisible && (
                 <button
                   onClick={() => setIsPomoVisible(true)}
-                  className="glass-button interactive mobile-hidden"
+                  className="glass-button interactive"
                   style={{
                     padding: pomoActive ? '10px 20px' : '12px',
                     borderRadius: '30px',
@@ -567,7 +686,7 @@ function App() {
                       {formatTime(pomoTime)}
                     </>
                   ) : (
-                    <Icons.Clock />
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                   )}
                 </button>
               )}
@@ -599,36 +718,47 @@ function App() {
 
       {currentSong && (
         <div className={`player-footer interactive ${zenMode ? 'zen-active' : ''}`}>
-          {/* INFO */}
-          <div className="player-section-info" style={{ display: 'flex', alignItems: 'center', gap: '20px', flex: 1 }}>
-            <div style={{ width: '56px', height: '56px', background: `linear-gradient(135deg, ${theme.accent}, rgba(0,0,0,0))`, borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', color: 'white', boxShadow: `0 10px 25px -5px ${theme.accent}50` }}>🎵</div>
-            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}><div style={{ fontWeight: '800', fontSize: '1.1rem' }}>{currentSong.title}</div><div style={{ fontSize: '0.85rem', color: theme.textSec, fontWeight: '600' }}>{currentSong.artist}</div></div>
-            {/* Mobile Toggle */}
-            <button className="glass-button mobile-only" onClick={() => setShowMobileVolume(!showMobileVolume)} style={{ width: '40px', height: '40px', borderRadius: '50%', marginLeft: 'auto', display: window.innerWidth > 900 ? 'none' : 'flex' }}><Icons.Volume /></button>
-            {showMobileVolume && <div className="mobile-vol-slider"><input type="range" min="0" max="1" step="0.1" value={musicVolume} onChange={e => setMusicVolume(e.target.value)} /></div>}
+          {/* INFO SECTION */}
+          <div className="player-section-info">
+            <div style={{ width: '42px', height: '42px', background: `linear-gradient(135deg, ${theme.accent}, rgba(0,0,0,0))`, borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', color: 'white', boxShadow: `0 5px 15px -5px ${theme.accent}50`, flexShrink: 0 }}>🎵</div>
+            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: '800', fontSize: '0.95rem', color: 'white' }}>{currentSong.title}</span>
+              <span style={{ fontSize: '0.75rem', color: theme.textSec, fontWeight: '600' }}>{currentSong.artist}</span>
+            </div>
           </div>
 
-          {/* CONTROLS */}
-          <div className="player-section-controls" style={{ flex: 1.5, maxWidth: '500px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '5px' }}>
-              <button onClick={handlePauseToggle} style={{ background: 'white', border: 'none', borderRadius: '50%', width: '54px', height: '54px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', cursor: 'pointer', boxShadow: `0 10px 30px -5px rgba(255,255,255,0.5)`, transition: 'transform 0.2s' }} onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}>
-                {isLocalPaused ? <Icons.PlayFill style={{ marginLeft: '4px' }} /> : <Icons.PauseFill />}
-              </button>
+          {/* CONTROLS (AND POMODORO MOBILE IN MIDDLE) */}
+          <div className="mobile-only mobile-pomo-player" style={{ display: window.innerWidth <= 900 ? 'flex' : 'none' }}>
+            <div style={{ background: 'rgba(0,0,0,0.3)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: '700', color: pomoActive ? theme.accent : theme.textSec, border: `1px solid ${pomoActive ? theme.accent : 'rgba(255,255,255,0.1)'}` }}>
+              {formatTime(pomoTime)}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '0.75rem', color: theme.textSec, width: '100%', fontWeight: '700' }}>
+          </div>
+
+          <div className="player-section-controls">
+            <button onClick={handlePauseToggle} style={{ background: 'white', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'black', cursor: 'pointer', boxShadow: `0 5px 20px -5px rgba(255,255,255,0.5)`, transition: 'transform 0.2s', flexShrink: 0 }} onMouseDown={e => e.currentTarget.style.transform = 'scale(0.95)'} onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}>
+              {isLocalPaused ? <Icons.PlayFill style={{ marginLeft: '3px', width: '22px', height: '22px' }} /> : <Icons.PauseFill style={{ width: '22px', height: '22px' }} />}
+            </button>
+
+            {/* Desktop Progress Bar */}
+            <div className="mobile-hidden" style={{ display: 'flex', alignItems: 'center', gap: '15px', fontSize: '0.75rem', color: theme.textSec, width: '100%', fontWeight: '700', marginTop: '10px' }}>
               <span>{currentTimeDisplay}</span>
-              <div style={{ flex: 1, height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ height: '100%', width: `${progress}%`, background: theme.accent, borderRadius: '4px', transition: 'width 0.1s linear', boxShadow: `0 0 15px ${theme.accent}` }}></div></div>
+              <div style={{ width: '250px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}><div style={{ height: '100%', width: `${progress}%`, background: theme.accent, borderRadius: '4px', transition: 'width 0.1s linear', boxShadow: `0 0 15px ${theme.accent}` }}></div></div>
               <span>{durationDisplay}</span>
             </div>
+
+            {/* Mobile Progress Bar */}
+            <div className="mobile-progress-container mobile-only" style={{ display: window.innerWidth <= 900 ? 'block' : 'none' }}>
+              <div style={{ height: '100%', width: `${progress}%`, background: theme.accent, borderRadius: '0 0 0 4px', transition: 'width 0.1s linear' }}></div>
+            </div>
           </div>
 
-          {/* RIGHT ACTIONS */}
-          <div className="player-section-actions" style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: '20px', alignItems: 'center' }}>
-            <div className="mobile-hidden" style={{ width: '120px', display: window.innerWidth > 900 ? 'flex' : 'none', alignItems: 'center', gap: '10px', color: theme.textSec }}>
+          {/* ACTIONS SECTION */}
+          <div className="player-section-actions">
+            <div className="mobile-hidden" style={{ width: '160px', display: window.innerWidth > 900 ? 'flex' : 'none', alignItems: 'center', gap: '10px', color: theme.textSec }}>
               <Icons.Volume />
               <input type="range" min="0" max="1" step="0.1" value={musicVolume} onChange={e => setMusicVolume(e.target.value)} style={{ flex: 1 }} />
             </div>
-            <button onClick={sendRandomReaction} className="glass-button reaction-btn" style={{ width: '50px', height: '50px' }}>
+            <button onClick={sendRandomReaction} className="glass-button reaction-btn" style={{ width: '45px', height: '45px', transform: 'scale(1.2)' }}>
               <Icons.Heart />
             </button>
           </div>
