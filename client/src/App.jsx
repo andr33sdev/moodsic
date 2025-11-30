@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import io from 'socket.io-client';
 
-const socket = io('http://localhost:3000');
+const API_URL = import.meta.env.PROD
+  ? 'https://https://moodsic-76kt.onrender.com'
+  : 'http://localhost:3000';
+
+const socket = io(API_URL);
 
 // --- COMPONENTES VISUALES (ICONOS SVG) ---
 const PlayIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>;
@@ -28,7 +32,7 @@ function App() {
 
   // --- 1. LÓGICA DE CONEXIÓN (IGUAL QUE ANTES) ---
   useEffect(() => {
-    fetch('http://localhost:3000/api/songs')
+    fetch(`${API_URL}/api/songs`)
       .then(res => res.json())
       .then(data => setSongs(data));
 
