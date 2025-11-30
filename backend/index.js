@@ -1,3 +1,4 @@
+// server/index.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -21,33 +22,53 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 // ESTADO GLOBAL
 let currentPlayback = {
     song: null,
-    startTime: null, // Momento exacto en milisegundos
+    startTime: null,
     mood: 'gaming'
 };
 
-io.on('connection', (socket) => {
-    console.log('🔌 Nuevo usuario conectado:', socket.id);
+// NUEVO: Contador de usuarios
+let connectedUsers = 0;
 
-    // 1. ESPEJO INMEDIATO: Si hay algo sonando, se lo enviamos al nuevo
+io.on('connection', (socket) => {
+    // 1. Manejo de Usuarios
+    connectedUsers++;
+    io.emit('users_update', connectedUsers); // Avisar a todos que entró alguien
+    console.log(`Usuario conectado. Total: ${connectedUsers}`);
+
+    // Enviar estado actual al nuevo
     if (currentPlayback.song) {
-        console.log(`📡 Enviando estado actual a ${socket.id}:`, currentPlayback.song.title);
         socket.emit('sync_state', currentPlayback);
     }
 
-    // 2. RECIBIR ORDEN DE PLAY
+    // 2. Manejo de Música
     socket.on('play_song', (song) => {
-        console.log('▶️ Play recibido:', song.title);
-        currentPlayback = {
-            song: song,
-            startTime: Date.now(), // Marca de tiempo del servidor
-            mood: song.mood || 'gaming'
-        };
+        currentPlayback = { song, startTime: Date.now(), mood: song.mood || 'gaming' };
         io.emit('sync_state', currentPlayback);
+    });
+
+    // 3. NUEVO: Manejo de Reacciones
+    socket.on('send_reaction', (emoji) => {
+        // Retransmitimos el emoji a todos (incluido el que lo envió para que vea su propia reacción)
+        io.emit('new_reaction', { id: Date.now(), emoji });
     });
 
     socket.on('change_mood', (mood) => {
         currentPlayback.mood = mood;
         io.emit('mood_updated', mood);
+    });
+
+    // 4. Desconexión
+    socket.on('disconnect', () => {
+        connectedUsers--;
+        io.emit('users_update', connectedUsers); // Avisar que alguien salió
+        console.log(`Usuario desconectado. Total: ${connectedUsers}`);
+    });
+
+    // NUEVO: Ripple Effect Compartido
+    // Recibimos coordenadas en porcentaje (x, y) para que sirva en cualquier tamaño de pantalla
+    socket.on('send_ripple', (coords) => {
+        // Retransmitimos a todos (incluido el que lo mandó para feedback instantáneo)
+        io.emit('trigger_ripple', { id: Date.now(), x: coords.x, y: coords.y });
     });
 });
 
